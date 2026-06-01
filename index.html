@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Football Vision Trainer</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .screen {
+            display: none;
+            width: 100%;
+            height: 100%;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .active {
+            display: flex;
+        }
+
+        /* Lobby & Selection Styles */
+        #lobby, #selection {
+            background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), 
+                        url('https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=2000') no-repeat center center;
+            background-size: cover;
+            color: white;
+        }
+
+        .menu-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px border rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #lobby h1 {
+            font-size: 3.5em;
+            margin-top: 0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        #selection h2 {
+            font-size: 2em;
+            margin-bottom: 20px;
+        }
+
+        .color-btns {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 15px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            border-radius: 12px;
+            background-color: #1DB954; /* Зеленый "футбольный" цвет */
+            color: white;
+            margin: 5px;
+            text-transform: uppercase;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .btn-blue { background-color: #0044FF; }
+        .btn-yellow { background-color: #FFD700; color: #000; }
+        .btn-red { background-color: #FF2222; }
+
+        /* Countdown screen */
+        #countdown {
+            background-color: white;
+            color: black; /* Цвет цифр */
+        }
+
+        /* Game Screen Styles */
+        #game { position: relative; }
+
+        #back-btn {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            padding: 10px 20px;
+            font-size: 14px;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            opacity: 0.6;
+            box-shadow: none;
+        }
+
+        #back-btn:hover {
+            opacity: 1;
+            background: rgba(255, 0, 0, 0.4);
+        }
+
+        #shape {
+            font-size: 250px; /* Увеличено для большей заметности */
+            font-weight: bold;
+            margin-bottom: 20px;
+            line-height: 1;
+        }
+
+        #direction-text {
+            font-size: 60px;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Экран 1: Лобби -->
+    <div id="lobby" class="screen active">
+        <div class="menu-card">
+            <h1>Vision<br>Trainer</h1>
+            <button onclick="initSpeechAndStart()">ИГРАТЬ</button>
+        </div>
+    </div>
+
+    <!-- Экран 2: Выбор цвета -->
+    <div id="selection" class="screen">
+        <div class="menu-card">
+            <h2>Выберите триггер:</h2>
+            <div class="color-btns">
+                <button class="btn-blue" onclick="startGame('blue')">Синий</button>
+                <button class="btn-yellow" onclick="startGame('yellow')">Желтый</button>
+                <button class="btn-red" onclick="startGame('red')">Красный</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Экран 2.5: Отсчет -->
+    <div id="countdown" class="screen">
+        <div id="countdown-number" style="font-size: 200px; font-weight: bold;"></div>
+    </div>
+
+    <!-- Экран 3: Тренировка -->
+    <div id="game" class="screen">
+        <div id="shape"></div>
+        <div id="direction-text"></div>
+        <button id="back-btn" onclick="stopGame()">В МЕНЮ</button>
+    </div>
+
+    <script>
+        const colors = [
+            { name: 'blue', value: '#0000FF' },
+            { name: 'yellow', value: '#FFFF00' },
+            { name: 'red', value: '#FF0000' }
+        ];
+
+        const shapes = ['←', '→', '||'];
+        const directions = ['ВЛЕВО', 'ВПРАВО', 'ЦЕНТР'];
+        let userTriggerColor = '';
+        let gameInterval; // Переменная для хранения ID интервала игры
+
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        function stopGame() {
+            clearInterval(gameInterval);
+            window.speechSynthesis.cancel();
+            showScreen('lobby');
+        }
+
+        // Инициализация звука (нужно для iOS и некоторых браузеров)
+        function initSpeechAndStart() {
+            const silent = new SpeechSynthesisUtterance("");
+            window.speechSynthesis.speak(silent);
+            showScreen('selection');
+        }
+
+        function startGame(color) {
+            userTriggerColor = color;
+            showScreen('countdown'); // Показываем экран отсчета
+            startCountdown();
+        }
+
+        function startCountdown() {
+            let count = 5;
+            const countdownEl = document.getElementById('countdown-number');
+            countdownEl.textContent = count;
+
+            const countdownTimer = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    countdownEl.textContent = count;
+                } else {
+                    clearInterval(countdownTimer); // Останавливаем таймер отсчета
+                    showScreen('game'); // Показываем игровой экран
+                    nextStep(); // Запускаем первый шаг сразу
+                    gameInterval = setInterval(nextStep, 3000); // Запускаем игровой цикл
+                }
+            }, 1000); // Обновляем каждую секунду
+        }
+
+        function nextStep() {
+            // 1. Генерируем все случайные данные заранее
+            const indices = [0, 1, 2];
+            // Правильный алгоритм перемешивания Фишера-Йейтса
+            for (let i = indices.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [indices[i], indices[j]] = [indices[j], indices[i]];
+            }
+
+            const randomShape = shapes[Math.floor(Math.random() * shapes.length)];
+            const randomDirection = directions[Math.floor(Math.random() * directions.length)];
+            const randomSpeech = directions[Math.floor(Math.random() * directions.length)];
+
+            // 2. Достаем элементы из DOM один раз
+            const gameScreen = document.getElementById('game');
+            const shapeEl = document.getElementById('shape');
+            const textEl = document.getElementById('direction-text');
+
+            // 3. Синхронное обновление (Браузер отрисует это одним кадром)
+            gameScreen.style.setProperty('background-color', colors[indices[0]].value, 'important');
+            
+            shapeEl.textContent = randomShape;
+            shapeEl.style.color = colors[indices[1]].value;
+
+            textEl.textContent = randomDirection;
+            textEl.style.color = colors[indices[2]].value;
+
+            // 4. Озвучка с очисткой очереди
+            if (window.speechSynthesis.speaking) {
+                window.speechSynthesis.cancel();
+            }
+
+            const utterance = new SpeechSynthesisUtterance(randomSpeech + "!"); // Восклицательный знак для акцента
+            utterance.lang = 'ru-RU';
+            utterance.rate = 1.7; // Еще быстрее (резкий выкрик)
+            utterance.pitch = 1.3; // Чуть выше тон для энергичности
+            utterance.volume = 1; // Максимальная громкость в рамках API
+
+            window.speechSynthesis.speak(utterance);
+        }
+    </script>
+</body>
+</html>
