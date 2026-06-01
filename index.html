@@ -187,13 +187,33 @@
         function stopGame() {
             clearInterval(gameInterval);
             window.speechSynthesis.cancel();
+
+            // При выходе в лобби можно выходить из полноэкранного режима (опционально)
+            if (document.fullscreenElement) {
+                document.exitFullscreen().catch(err => console.log(err));
+            }
+
             showScreen('lobby');
         }
 
         // Инициализация звука (нужно для iOS и некоторых браузеров)
-        function initSpeechAndStart() {
+        async function initSpeechAndStart() {
+            // 1. Инициализация звука
             const silent = new SpeechSynthesisUtterance("");
             window.speechSynthesis.speak(silent);
+
+            // 2. Запрос полноэкранного режима
+            const docEl = document.documentElement;
+            try {
+                if (docEl.requestFullscreen) {
+                    await docEl.requestFullscreen();
+                } else if (docEl.webkitRequestFullscreen) { /* Safari/iOS */
+                    await docEl.webkitRequestFullscreen();
+                }
+            } catch (err) {
+                console.log("Fullscreen request failed:", err);
+            }
+
             showScreen('selection');
         }
 
