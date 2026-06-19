@@ -281,7 +281,50 @@
             utterance.volume = 1; // Максимальная громкость в рамках API
 
             window.speechSynthesis.speak(utterance);
+        
         }
-    </script>
+let selectedMinutes = 5;
+let sessionTimer;
+
+document.body.insertAdjacentHTML("beforeend", `
+<div id="timer-selection" class="screen">
+    <div class="menu-card">
+        <h2>Выберите время (1-30 минут)</h2>
+        <input id="timer-input" type="number" min="1" max="30" value="5"
+            style="padding:15px; font-size:24px; width:120px; text-align:center; border-radius:10px;">
+        <button onclick="confirmTimer()">ПОДТВЕРДИТЬ</button>
+    </div>
+</div>
+`);
+
+const oldStartCountdown = startCountdown;
+
+startGame = function(color) {
+    userTriggerColor = color;
+    showScreen("timer-selection");
+}
+
+function confirmTimer() {
+    selectedMinutes = parseInt(document.getElementById("timer-input").value);
+
+    if (selectedMinutes < 1) selectedMinutes = 1;
+    if (selectedMinutes > 30) selectedMinutes = 30;
+
+    showScreen("countdown");
+
+    oldStartCountdown();
+
+    sessionTimer = setTimeout(() => {
+        alert("Время вышло!");
+        stopGame();
+    }, selectedMinutes * 60000);
+}
+
+const oldStopGame = stopGame;
+stopGame = function() {
+    clearTimeout(sessionTimer);
+    oldStopGame();
+}        
+</script>
 </body>
 </html>
